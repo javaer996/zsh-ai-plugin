@@ -11,10 +11,10 @@ if [[ -z "${ZAI_SKIP_AUTO_CONFIG:-}" && -r "${ZAI_CONFIG_FILE}" ]]; then
 fi
 
 for module in helpers config api commands; do
-  module_path="${ZAI_PLUGIN_DIR}/lib/${module}.zsh"
-  if [[ -f "${module_path}" ]]; then
-    source "${module_path}"
+  module_file="${ZAI_PLUGIN_DIR}/lib/${module}.zsh"
+  if [[ -f "${module_file}" ]]; then
+    source "${module_file}"
   else
-    print -u2 "zsh-ai-plugin: 缺少模块 ${module_path}"
+    print -u2 "zsh-ai-plugin: 缺少模块 ${module_file}"
   fi
 done

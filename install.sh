@@ -10,20 +10,79 @@ if [[ -r "${SCRIPT_DIR}/lib/defaults.sh" ]]; then
   source "${SCRIPT_DIR}/lib/defaults.sh"
 fi
 
-if [[ -d "${SCRIPT_DIR}/lib" && -f "${SCRIPT_DIR}/zsh-ai-plugin.plugin.zsh" ]]; then
-  DEFAULT_INSTALL_DIR="${SCRIPT_DIR}"
-else
-  DEFAULT_INSTALL_DIR="${HOME}/.zsh/zsh-ai-plugin"
-fi
-
-INSTALL_DIR="${ZAI_INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
+DEFAULT_INSTALL_DIR="${HOME}/.zsh/zsh-ai-plugin"
 ZSHRC="${ZSHRC:-$HOME/.zshrc}"
 CONFIG_FILE="${ZAI_CONFIG_FILE:-$HOME/.config/zsh-ai-plugin/config.zsh}"
 CONFIG_DIR="$(dirname "$CONFIG_FILE")"
+DEFAULT_AUTOSUGGEST_DIR="${HOME}/.zsh/zsh-autosuggestions"
+AUTOSUGGEST_DIR="${ZAI_AUTOSUGGEST_DIR:-$DEFAULT_AUTOSUGGEST_DIR}"
+INSTALL_DIR=""
+INSTALL_MODE="install"
 
 SUGGESTIONS=()
 add_suggestion() {
   SUGGESTIONS+=("$1")
+}
+
+has_autosuggestions() {
+  if [[ -f "${ZSHRC}" ]] && grep -q "zsh-autosuggestions" "${ZSHRC}"; then
+    return 0
+  fi
+  local candidates=(
+    "${HOME}/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh"
+    "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  )
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "${candidate}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+install_autosuggestions() {
+  local target="${AUTOSUGGEST_DIR}"
+  if [[ -d "${target}" ]]; then
+    info "zsh-autosuggestions 已存在于 ${target}"
+    return 0
+  fi
+  info "克隆 zsh-autosuggestions 到 ${target}"
+  mkdir -p "$(dirname "${target}")"
+  git clone https://github.com/zsh-users/zsh-autosuggestions "${target}"
+}
+
+ensure_autosuggestions_source() {
+  local source_line="source ${AUTOSUGGEST_DIR}/zsh-autosuggestions.zsh"
+  if [[ -f "${ZSHRC}" ]] && grep -F "${source_line}" "${ZSHRC}" >/dev/null 2>&1; then
+    return
+  fi
+  info "在 ${ZSHRC} 追加 zsh-autosuggestions 引用"
+  {
+    printf '\n# zsh-autosuggestions\n'
+    printf '%s\n' "${source_line}"
+  } >> "${ZSHRC}"
+  add_suggestion "已为 zsh-autosuggestions 更新 ${ZSHRC}，可执行 'source ${ZSHRC}' 使其生效"
+}
+
+ensure_autosuggestions() {
+  if has_autosuggestions; then
+    info "检测到已配置 zsh-autosuggestions，可在需要时使用 Tab 接受灰色补全"
+    return
+  fi
+
+  read -r -p "是否立即安装 zsh-autosuggestions（灰色自动补全）? [y/N]: " answer
+  if [[ ! "${answer}" =~ ^[Yy]$ ]]; then
+    add_suggestion "如需灰色自动补全，可运行: git clone https://github.com/zsh-users/zsh-autosuggestions ${AUTOSUGGEST_DIR} && 在 ${ZSHRC} 中 source"
+    return
+  fi
+
+  install_autosuggestions && ensure_autosuggestions_source &&
+    info "zsh-autosuggestions 安装完毕，重新加载 shell 即可生效"
+}
+
+resolve_install_dir() {
+  printf '%s\n' "${DEFAULT_INSTALL_DIR}"
 }
 
 write_config_var() {
@@ -88,25 +147,38 @@ check_dependencies() {
 }
 
 clone_or_copy_repo() {
+  local action="安装"
   if [[ -d "${INSTALL_DIR}/lib" ]]; then
-    info "检测到已有插件目录: ${INSTALL_DIR}"
-    return
-  fi
-
-  if [[ -d "${SCRIPT_DIR}/lib" && "${SCRIPT_DIR}" != "${INSTALL_DIR}" ]]; then
-    info "复制当前仓库到 ${INSTALL_DIR}"
-    mkdir -p "${INSTALL_DIR}"
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --exclude '.git' "${SCRIPT_DIR}/" "${INSTALL_DIR}/"
-    else
-      cp -R "${SCRIPT_DIR}/." "${INSTALL_DIR}/"
-      rm -rf "${INSTALL_DIR}/.git"
-    fi
-    return
+    action="更新"
+    INSTALL_MODE="update"
+    info "检测到已有插件目录: ${INSTALL_DIR}，将执行覆盖更新"
+  else
+    INSTALL_MODE="install"
+    info "准备将插件安装到 ${INSTALL_DIR}"
   fi
 
   if [[ "${SCRIPT_DIR}" == "${INSTALL_DIR}" ]]; then
-    info "使用当前目录作为插件目录"
+    info "当前目录即目标目录，假定代码已更新，跳过文件同步"
+    return
+  fi
+
+  if [[ -d "${SCRIPT_DIR}/lib" ]]; then
+    info "同步文件到 ${INSTALL_DIR}"
+    mkdir -p "${INSTALL_DIR}"
+    if command -v rsync >/dev/null 2>&1; then
+      rsync -a --delete \
+        --exclude '.git/' \
+        --exclude '.gitignore' \
+        --exclude '.DS_Store' \
+        --exclude '.claude/' \
+        "${SCRIPT_DIR}/" "${INSTALL_DIR}/"
+    else
+      rm -rf "${INSTALL_DIR}"
+      mkdir -p "${INSTALL_DIR}"
+      cp -R "${SCRIPT_DIR}/." "${INSTALL_DIR}/"
+      rm -rf "${INSTALL_DIR}/.git" "${INSTALL_DIR}/.claude" "${INSTALL_DIR}/.gitignore" 2>/dev/null || true
+    fi
+    info "${action}文件同步完成: ${INSTALL_DIR}"
     return
   fi
 
@@ -185,6 +257,10 @@ configure_file() {
 }
 
 ensure_config() {
+  if [[ "${INSTALL_MODE}" == "update" ]]; then
+    info "更新模式，保留现有配置 (${CONFIG_FILE})"
+    return
+  fi
   if [[ -f "${CONFIG_FILE}" ]]; then
     info "检测到已有配置文件: ${CONFIG_FILE}"
     read -r -p "是否重新配置? [y/N]: " answer
@@ -223,15 +299,18 @@ print_summary() {
   printf '  - zai-help            # 查看所有能力\n'
   printf '  - zai-config all      # 随时调整接口参数\n'
   printf '  - zq / ze             # 体验命令生成与解释\n'
+  printf '\n卸载: 可在插件目录执行 sh uninstall.sh 根据提示安全移除。\n'
 }
 
 main() {
   info "开始一键安装 zsh-ai-plugin"
   check_os
   check_dependencies
+  INSTALL_DIR="$(resolve_install_dir)"
   clone_or_copy_repo
   ensure_source_line
   ensure_config
+  ensure_autosuggestions
   print_summary
 }
 

@@ -18,8 +18,9 @@
    sh install.sh
    ```
 
-   脚本会检测依赖（zsh、git、curl、python3、fzf）、提示缺失项的安装命令、克隆/复制仓库、为 `.zshrc` 添加 `source` 行并引导配置 `~/.config/zsh-ai-plugin/config.zsh`。  
-   可通过环境变量自定义：`ZAI_INSTALL_DIR`（插件目录）、`ZAI_CONFIG_FILE`（配置路径）、`ZAI_INSTALL_REPO_URL`（仓库地址）。
+   脚本会检测依赖（zsh、git、curl、python3、fzf）、提示缺失项的安装命令，将插件同步到固定目录 `~/.zsh/zsh-ai-plugin` 并为 `.zshrc` 追加 `source` 行，最后引导生成 `~/.config/zsh-ai-plugin/config.zsh`。如检测到未安装 `zsh-autosuggestions`，脚本会询问是否自动克隆并帮你添加 `source` 行（默认目录 `~/.zsh/zsh-autosuggestions`，可用 `ZAI_AUTOSUGGEST_DIR` 自定义）。  
+   若想移除插件，可在安装目录执行 `sh uninstall.sh` 按提示清理，并决定是否保留配置。  
+   其他可用环境变量：`ZAI_CONFIG_FILE`（配置路径）、`ZAI_INSTALL_REPO_URL`（仓库地址）、`ZAI_AUTOSUGGEST_DIR`（自动安装 `zsh-autosuggestions` 的目标目录）。
 
 2. **手动克隆仓库并在 `.zshrc` 里 source**
 
@@ -34,13 +35,7 @@
    - **zinit**：`zinit light /path/to/zsh-ai-plugin`
    - **Oh My Zsh**：将仓库放入 `~/.oh-my-zsh/custom/plugins` 后，在 `.zshrc` 的 `plugins=(...)` 中加入 `zsh-ai-plugin`。
 
-更新到最新脚本时，可在仓库目录执行：
-
-```zsh
-sh update.sh
-```
-
-脚本会自动识别 `.zshrc` 中的 `source .../zsh-ai-plugin.plugin.zsh` 路径（或读取 `ZAI_INSTALL_DIR`），然后将仓库内容同步过去，既不会覆盖 `~/.config/zsh-ai-plugin` 下的配置，也无需重新安装依赖。
+当需要更新到最新脚本时，在仓库目录执行 `sh install.sh` 即可；脚本会自动识别 `.zshrc` 中的目标目录并执行覆盖更新，`~/.config/zsh-ai-plugin` 下的配置不会被改动。
 
 ## 配置
 
@@ -85,6 +80,11 @@ export ZAI_PROMPT_ZE="你是 shell 教程讲师，以简洁的三段式说明命
 - `ZAI_SKIP_AUTO_CONFIG=1`：若想完全自行设置环境变量，可通过该变量禁止插件自动加载配置文件。
 - `ZAI_DISABLE_SPINNER=1`：若不需要交互式等待提示，可关闭 `zq/ze` 请求 AI 时的动态提示行。
 - `ZAI_DEBUG=1`：调试模式，打印系统提示、用户提示、请求体与 AI 原始响应等详细日志。
+
+### 推荐灰色自动补全
+
+- 当安装脚本检测到本地没有 [`zsh-autosuggestions`](https://github.com/zsh-users/zsh-autosuggestions) 时，会提示是否自动克隆到 `ZAI_AUTOSUGGEST_DIR` 并在 `.zshrc` 末尾追加 `source .../zsh-autosuggestions.zsh`。若选择跳过，可随时手动安装：`git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions`。
+- 如需使用 Tab 接受灰色建议，可在 `.zshrc` 追加 `bindkey '^I' autosuggest-accept`（脚本不会默认设置）。
 
 ## 依赖
 
