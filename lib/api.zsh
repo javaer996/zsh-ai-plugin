@@ -138,6 +138,7 @@ _zai_parse_command_list() {
   local raw="$1"
   _zai_debug "进入命令解析: ${raw}"
   ZAI_COMMAND_RESPONSE="${raw}" python3 - <<'PY'
+import base64
 import json
 import os
 import re
@@ -177,8 +178,11 @@ for item in commands:
     cmd = item.get("cmd") or item.get("command") or item.get("code")
     if not cmd:
         continue
+    if not isinstance(cmd, str):
+        cmd = str(cmd)
     desc = item.get("description") or item.get("explanation") or ""
     desc = re.sub(r"\s+", " ", desc.strip())
-    print(f"{cmd}\t{desc}")
+    encoded_cmd = base64.b64encode(cmd.encode("utf-8")).decode("ascii")
+    print(f"{encoded_cmd}\t{desc}")
 PY
 }

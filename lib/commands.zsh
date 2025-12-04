@@ -3,15 +3,19 @@
 _zai_select_command() {
   local entries="$1"
   local -a cmd_list desc_list menu_entries
-  local line cmd desc
+  local line encoded_cmd decoded_cmd desc
   local IFS=$'\n'
   for line in ${=entries}; do
-    cmd="${line%%$'\t'*}"
+    encoded_cmd="${line%%$'\t'*}"
     desc="${line#*$'\t'}"
-    if [[ "${cmd}" == "${desc}" ]]; then
+    if [[ "${encoded_cmd}" == "${desc}" ]]; then
       desc=""
     fi
-    cmd_list+=("${cmd}")
+    decoded_cmd="$(_zai_decode_base64 "${encoded_cmd}")" || {
+      _zai_debug "命令解码失败，条目已跳过"
+      continue
+    }
+    cmd_list+=("${decoded_cmd}")
     desc_list+=("${desc}")
   done
 
@@ -21,10 +25,11 @@ _zai_select_command() {
   fi
 
   local idx=1
-  local entry display desc_line
+  local entry display desc_line single_line
   for entry in "${cmd_list[@]}"; do
     desc_line="${desc_list[$idx]}"
-    display="${idx}. ${entry}"
+    single_line="${entry//$'\n'/\\n}"
+    display="${idx}. ${single_line}"
     if [[ -n "${desc_line}" ]]; then
       display="${display} # ${desc_line}"
     fi
@@ -81,7 +86,8 @@ zq() {
   if [[ -n "${ZAI_SYSTEM_HINT:-}" ]]; then
     system_prompt="${ZAI_SYSTEM_HINT}\n${system_prompt}"
   fi
-  local user_prompt="当前目录: ${PWD}\n任务: ${query}\n请给出可直接执行的命令列表。如果可行，必须返回shell命令，也可以返回python等其他语言命令，但是禁止返回与要求无关的命令！"
+  local user_prompt="当前目录: ${PWD}\n任务: ${query}\n请给出可直接执行的命令列表。如果可行，优先返回shell命令，也可以返回python等其他语言命令，但是禁止返回与要求无关的命令！命令返回格式必须遵守以下要求：请以单行字符串形式返回整段脚本命令（在
+  JSON里用\n表示换行,示例:\"cat <<'EOF' > geometric_sequence.py\n#!/usr/bin/env python3\n...\nEOF\""
 
   local raw
   raw="$(_zai_chat_request "${system_prompt}" "${user_prompt}")" || return 1

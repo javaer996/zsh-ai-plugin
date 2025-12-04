@@ -44,6 +44,23 @@ _zai_use_fzf() {
   command -v fzf &>/dev/null
 }
 
+_zai_decode_base64() {
+  local input="$1"
+  ZAI_B64_INPUT="${input}" python3 - <<'PY'
+import base64
+import os
+import sys
+
+data = os.environ.get("ZAI_B64_INPUT", "")
+try:
+    decoded = base64.b64decode(data).decode("utf-8")
+except Exception:
+    sys.exit(1)
+
+sys.stdout.write(decoded)
+PY
+}
+
 _zai_enqueue_command() {
   local cmd="$1"
   if [[ -o interactive ]] && command -v print >/dev/null 2>&1; then
