@@ -4,6 +4,7 @@ _zai_chat_request() {
   local system_prompt="$1"
   local user_prompt="$2"
   local response_format="${3:-${ZAI_RESPONSE_FORMAT:-}}"
+  local spinner_message="${4:-✨ 正在请求 AI...}"
 
   _zai_require_binary "curl" || return 1
   _zai_require_binary "python3" || return 1
@@ -76,6 +77,12 @@ PY
   }
   _zai_debug "请求体: ${payload}"
 
+  local spinner_active=0
+  if [[ -z "${ZAI_DISABLE_SPINNER:-}" ]]; then
+    _zai_start_spinner "${spinner_message}"
+    spinner_active=1
+  fi
+
   local raw
   raw="$(printf '%s' "${payload}" | curl --silent --show-error \
     --max-time "${timeout}" \
@@ -83,9 +90,12 @@ PY
     -H "${auth_header}" \
     -X POST "${url}" \
     --data-binary @-)" || {
+    (( spinner_active )) && _zai_stop_spinner
     _zai_err "请求 AI 接口失败"
     return 1
   }
+
+  (( spinner_active )) && _zai_stop_spinner
 
   _zai_debug "AI 原始响应: ${raw}"
 

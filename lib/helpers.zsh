@@ -1,5 +1,10 @@
 # shellcheck shell=zsh
 
+typeset -gi ZAI_SPINNER_ACTIVE=0
+typeset -gi ZAI_SPINNER_PID=0
+typeset -g ZAI_SPINNER_MESSAGE=""
+typeset -gi ZAI_SPINNER_CURSOR_HIDDEN=0
+
 _zai_info() {
   print -P "%F{36}[zai]%f $*"
 }
@@ -59,6 +64,59 @@ except Exception:
 
 sys.stdout.write(decoded)
 PY
+}
+
+_zai_start_spinner() {
+  local message="${1:-正在请求 AI...}"
+  if (( ZAI_SPINNER_ACTIVE )); then
+    return 0
+  fi
+  ZAI_SPINNER_MESSAGE="${message}"
+  ZAI_SPINNER_ACTIVE=1
+  if [[ ! -t 2 ]]; then
+    print -P "%F{36}[zai]%f ${message}" >&2
+    ZAI_SPINNER_PID=0
+    return 0
+  fi
+  if (( ! ZAI_SPINNER_CURSOR_HIDDEN )); then
+    printf '\e[?25l' >&2
+    ZAI_SPINNER_CURSOR_HIDDEN=1
+  fi
+  {
+    local frames=('|' '/' '-' '\\')
+    local idx=0
+    while true; do
+      printf '\r%s %s' "${message}" "${frames[$(( idx % ${#frames[@]} ))]}" >&2
+      ((idx++))
+      sleep 0.1
+    done
+  } &
+  ZAI_SPINNER_PID=$!
+  disown "${ZAI_SPINNER_PID}" 2>/dev/null
+  return 0
+}
+
+_zai_stop_spinner() {
+  if (( ! ZAI_SPINNER_ACTIVE )); then
+    return 0
+  fi
+  if (( ZAI_SPINNER_PID > 0 )); then
+    kill "${ZAI_SPINNER_PID}" 2>/dev/null
+    wait "${ZAI_SPINNER_PID}" 2>/dev/null
+  fi
+  if [[ -t 2 ]]; then
+    printf '\r\033[K' >&2
+    if (( ZAI_SPINNER_CURSOR_HIDDEN )); then
+      printf '\e[?25h' >&2
+      ZAI_SPINNER_CURSOR_HIDDEN=0
+    fi
+  else
+    print "" >&2
+  fi
+  ZAI_SPINNER_ACTIVE=0
+  ZAI_SPINNER_PID=0
+  ZAI_SPINNER_MESSAGE=""
+  return 0
 }
 
 _zai_enqueue_command() {

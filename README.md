@@ -61,6 +61,7 @@ export ZAI_TEMPERATURE="0.2"
 # export ZAI_SYSTEM_HINT="你是我的终端搭档..."
 export ZAI_PROMPT_ZQ="你是一个资深的 macOS 终端助手，会把需求转成 1-5 条命令并以 JSON {\"commands\":...} 回应"
 export ZAI_PROMPT_ZE="你是 shell 教程讲师，以简洁的三段式说明命令并提供安全提示"
+# export ZAI_DISABLE_SPINNER="1"  # 关闭等待 AI 时的动态提示
 # export ZAI_DEBUG="1"
 # export ZAI_CONFIRM_BEFORE_EXECUTE="1"
 ```
@@ -82,6 +83,7 @@ export ZAI_PROMPT_ZE="你是 shell 教程讲师，以简洁的三段式说明命
 - `zai-help`：输出全部可用命令及常见环境变量。
 - `zai-config ...`：按上一节描述管理配置，也可以在脚本里 `zai-config set KEY=VALUE` 批量修改。可通过 `ZAI_PROMPT_ZQ` / `ZAI_PROMPT_ZE` 自由定制系统提示词。
 - `ZAI_SKIP_AUTO_CONFIG=1`：若想完全自行设置环境变量，可通过该变量禁止插件自动加载配置文件。
+- `ZAI_DISABLE_SPINNER=1`：若不需要交互式等待提示，可关闭 `zq/ze` 请求 AI 时的动态提示行。
 - `ZAI_DEBUG=1`：调试模式，打印系统提示、用户提示、请求体与 AI 原始响应等详细日志。
 
 ## 依赖

@@ -90,7 +90,7 @@ zq() {
   JSON里用\n表示换行,示例:\"cat <<'EOF' > geometric_sequence.py\n#!/usr/bin/env python3\n...\nEOF\""
 
   local raw
-  raw="$(_zai_chat_request "${system_prompt}" "${user_prompt}")" || return 1
+  raw="$(_zai_chat_request "${system_prompt}" "${user_prompt}" "" "✨ 正在请求 AI 生成命令...")" || return 1
   local parsed
   parsed="$(_zai_parse_command_list "${raw}")" || {
     _zai_err "AI 返回内容无法解析，请查看原始输出:"
@@ -117,7 +117,7 @@ ze() {
   local user_prompt="命令: ${target}\n 返回结构不要太复杂，不要有markdown，html等标签。"
 
   local result
-  result="$(_zai_chat_request "${system_prompt}" "${user_prompt}")" || return 1
+  result="$(_zai_chat_request "${system_prompt}" "${user_prompt}" "" "✨ 正在请求 AI 解释命令...")" || return 1
   print -r -- "${result}"
 }
 
@@ -137,6 +137,7 @@ zsh-ai-plugin 指令速览:
   ZAI_CONFIG_FILE   指定配置文件路径
   ZAI_PROMPT_ZQ     自定义 zq 的系统提示
   ZAI_PROMPT_ZE     自定义 ze 的系统提示
+  ZAI_DISABLE_SPINNER 请求 AI 时关闭动态提示行
   ZAI_DEBUG=1       打印系统/用户提示、请求体与 AI 响应等调试日志
 EOF
 }
