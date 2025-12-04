@@ -1,98 +1,88 @@
 # zsh-ai-plugin
 
-一个在 macOS 终端内使用 OpenAI 格式接口的 zsh 插件，让自然语言描述和命令解释都能在命令行完成。
+**[中文说明 / Chinese Version](README.zh.md)**
 
-## 功能亮点
+A macOS-focused zsh plugin that keeps AI assistance inside your terminal: describe what you need with `zq` to receive runnable commands, or ask `ze` to explain what an unfamiliar command does. Everything speaks the OpenAI Chat Completions protocol, so it works with OpenAI, Azure, and compatible self-hosted gateways.
 
-- **可配置的 OpenAI 兼容接口**：支持自定义 Base URL、API Key、模型、温度等参数，也可自定义授权头适配 Azure/OpenAI 等服务。
-- **`zq <自然语言>`**：将描述转换成 1~5 条真实 shell 命令，并配上简短说明；集成 `fzf` 选择器，没有 `fzf` 时回退到 zsh `select`。
-- **`ze <命令>`**：用中文解释命令作用、危险点以及可选变体，帮助快速理解陌生命令。
-- **`zai-config` 命令组**：交互式维护配置，支持查看、全量编辑、选择性编辑或直接传入 `KEY=VALUE`，保存后立即生效；`zai_config_init` 则可生成模板。
-- **`zai-help`**：在终端里列出所有可用能力与常见环境变量。
+## Highlights
 
-## 安装
+- **Flexible API controls** – configure base URL, API key, model, temperature, request timeout, and even custom auth headers for Azure/OpenAI-compatible providers.
+- **`zq` command synthesis** – turns natural-language descriptions into 1–5 commands. When `fzf` is present, an interactive picker with a preview pane displays the full script; otherwise it falls back to zsh `select`.
+- **`ze` command explaining** – summarizes purpose, risks, and alternative invocations for any command; adjust the tone by editing `ZAI_PROMPT_ZE`.
+- **Config tooling** – `zai-config` offers show/all/pick/set modes for interactive editing, while `zai_config_init` scaffolds the default template. Changes are sourced immediately.
+- **Help & debugging** – `zai-help` lists every helper; set `ZAI_DEBUG=1` to print prompts, payloads, and raw responses when troubleshooting.
 
-1. **一键安装脚本（推荐）**
+## Installation
 
-   ```zsh
-   sh install.sh
-   ```
+### One-shot script (recommended)
 
-   脚本会检测依赖（zsh、git、curl、python3、fzf）、提示缺失项的安装命令，将插件同步到固定目录 `~/.zsh/zsh-ai-plugin` 并为 `.zshrc` 追加 `source` 行，最后引导生成 `~/.config/zsh-ai-plugin/config.zsh`。如检测到未安装 `zsh-autosuggestions`，脚本会询问是否自动克隆并帮你添加 `source` 行（默认目录 `~/.zsh/zsh-autosuggestions`，可用 `ZAI_AUTOSUGGEST_DIR` 自定义）。  
-   若想移除插件，可在安装目录执行 `sh uninstall.sh` 按提示清理，并决定是否保留配置。  
-   其他可用环境变量：`ZAI_CONFIG_FILE`（配置路径）、`ZAI_INSTALL_REPO_URL`（仓库地址）、`ZAI_AUTOSUGGEST_DIR`（自动安装 `zsh-autosuggestions` 的目标目录）。
+```zsh
+sh install.sh
+```
 
-2. **手动克隆仓库并在 `.zshrc` 里 source**
+- Checks prerequisites (`zsh`, `git`, `curl`, `python3`, optional `fzf`) and suggests commands for installing missing components.
+- Copies the plugin to `~/.zsh/zsh-ai-plugin` and appends `source ~/.zsh/zsh-ai-plugin/zsh-ai-plugin.plugin.zsh` to `~/.zshrc`.
+- Guides you through creating `~/.config/zsh-ai-plugin/config.zsh`; you can skip and adjust later via `zai-config`.
+- If [`zsh-autosuggestions`](https://github.com/zsh-users/zsh-autosuggestions) is missing, the installer can clone it to `~/.zsh/zsh-autosuggestions` (override with `ZAI_AUTOSUGGEST_DIR`) and add the required `source` line so you get grey inline hints immediately.
+- Run `sh uninstall.sh` inside the install directory to remove the plugin, clean up the `source` line, and optionally delete the config file.
 
-   ```zsh
-   git clone https://github.com/<your-account>/zsh-ai-plugin.git ~/.zsh/zsh-ai-plugin
-   echo 'source ~/.zsh/zsh-ai-plugin/zsh-ai-plugin.plugin.zsh' >> ~/.zshrc
-   ```
+Environment variables: `ZAI_CONFIG_FILE` (config path), `ZAI_INSTALL_REPO_URL` (alternate repo), `ZAI_AUTOSUGGEST_DIR` (autosuggestions location). Re-running `sh install.sh` updates the plugin in place without touching your config.
 
-3. **使用插件管理器**
+### Manual options
 
-   - **Antigen**：`antigen bundle /path/to/zsh-ai-plugin`
-   - **zinit**：`zinit light /path/to/zsh-ai-plugin`
-   - **Oh My Zsh**：将仓库放入 `~/.oh-my-zsh/custom/plugins` 后，在 `.zshrc` 的 `plugins=(...)` 中加入 `zsh-ai-plugin`。
+- **Manual clone**
+  ```zsh
+  git clone https://github.com/<your-account>/zsh-ai-plugin.git ~/.zsh/zsh-ai-plugin
+  echo 'source ~/.zsh/zsh-ai-plugin/zsh-ai-plugin.plugin.zsh' >> ~/.zshrc
+  ```
+- **Plugin managers** – e.g. `antigen bundle /path/to/zsh-ai-plugin`, `zinit light /path/to/zsh-ai-plugin`, or drop the repo under `~/.oh-my-zsh/custom/plugins` and list it in `plugins=(...)`.
 
-当需要更新到最新脚本时，在仓库目录执行 `sh install.sh` 即可；脚本会自动识别 `.zshrc` 中的目标目录并执行覆盖更新，`~/.config/zsh-ai-plugin` 下的配置不会被改动。
+## Configuration
 
-## 配置
-
-首次运行 `zai_config_init` 会生成 `~/.config/zsh-ai-plugin/config.zsh` 模板。按需修改：
+Run `zai_config_init` once to scaffold the config file. Common fields:
 
 ```zsh
 export ZAI_API_BASE="https://api.openai.com/v1"
 export ZAI_API_ENDPOINT="/chat/completions"
 export ZAI_API_KEY="sk-xxx"
-# Azure 等服务可以改成自定义头
-# export ZAI_API_AUTH_HEADER="api-key: xxx"
+# export ZAI_API_AUTH_HEADER="api-key: xxx"   # Azure / self-hosted
 
 export ZAI_MODEL="gpt-4o-mini"
 export ZAI_TEMPERATURE="0.2"
 # export ZAI_REQUEST_TIMEOUT="45"
 
-# 可选自定义系统提示
-# export ZAI_SYSTEM_HINT="你是我的终端搭档..."
-export ZAI_PROMPT_ZQ="你是一个资深的 macOS 终端助手，会把需求转成 1-5 条命令并以 JSON {\"commands\":...} 回应"
-export ZAI_PROMPT_ZE="你是 shell 教程讲师，以简洁的三段式说明命令并提供安全提示"
-# export ZAI_DISABLE_SPINNER="1"  # 关闭等待 AI 时的动态提示
+# export ZAI_SYSTEM_HINT="You are my shell co-pilot..."
+export ZAI_PROMPT_ZQ="You are a senior macOS terminal assistant..."
+export ZAI_PROMPT_ZE="You are a shell instructor..."
+# export ZAI_DISABLE_SPINNER="1"
 # export ZAI_DEBUG="1"
 # export ZAI_CONFIRM_BEFORE_EXECUTE="1"
 ```
 
-此后可使用 `zai-config` 命令进行维护，流程如下：
+Use `zai-config show/all/pick/set` to inspect or edit fields interactively (with `fzf` multi-select when available). All changes are sourced immediately—no need to restart the shell.
 
-- `zai-config show`：查看当前配置（敏感项自动打码）。
-- `zai-config all`：逐项询问所有字段，可输入 `-` 清空当前值。
-- `zai-config pick`：选择部分字段（支持 `fzf` 多选或编号输入）。
-- `zai-config set KEY=VALUE ...`：脚本中快速覆盖某些字段。
-- 直接运行 `zai-config` 会进入交互式菜单，`zai-config init` 则重新生成模板。
+## Usage
 
-配置会立即写入文件并 `source`，无需重启 shell。
+- `zq <request>` – describe what you want; the `fzf` picker lists up to 5 commands with a live preview of the full script. Selecting an entry pushes it into your prompt so you can tweak it before execution.
+- `ze <command>` – explains the command in plain language, covering purpose, risks, and alternatives.
+- `zai-help` – displays all helper commands and relevant environment variables.
+- Additional toggles:
+  - `ZAI_SKIP_AUTO_CONFIG=1` – skip auto-loading the config file.
+  - `ZAI_DISABLE_SPINNER=1` – hide the spinner while waiting for AI responses.
+  - `ZAI_DEBUG=1` – enable verbose logging of prompts and responses.
 
-## 使用方法
+### Grey inline suggestions
 
-- `zq <需求>`：例如 `zq 列出当前目录的所有 markdown 文件并按更新时间排序`。插件会请求 AI，把自然语言转成命令列表。若系统安装了 `fzf` 会进入交互式选择，否则采用 zsh 默认 `select`。选中后命令会被写入当前提示符（可自行编辑后按 Enter 执行），若环境不支持则直接打印命令供复制。
-- `ze <命令>`：例如 `ze find . -name '*.log' -delete`。AI 会返回命令的逐段解释、潜在风险和替代写法。
-- `zai-help`：输出全部可用命令及常见环境变量。
-- `zai-config ...`：按上一节描述管理配置，也可以在脚本里 `zai-config set KEY=VALUE` 批量修改。可通过 `ZAI_PROMPT_ZQ` / `ZAI_PROMPT_ZE` 自由定制系统提示词。
-- `ZAI_SKIP_AUTO_CONFIG=1`：若想完全自行设置环境变量，可通过该变量禁止插件自动加载配置文件。
-- `ZAI_DISABLE_SPINNER=1`：若不需要交互式等待提示，可关闭 `zq/ze` 请求 AI 时的动态提示行。
-- `ZAI_DEBUG=1`：调试模式，打印系统提示、用户提示、请求体与 AI 原始响应等详细日志。
+- If you accepted the autosuggestions install during `sh install.sh`, the plugin already cloned and sourced it. Otherwise run `git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions` manually.
+- Add `bindkey '^I' autosuggest-accept` to `~/.zshrc` if you prefer accepting suggestions with Tab.
 
-### 推荐灰色自动补全
+## Requirements
 
-- 当安装脚本检测到本地没有 [`zsh-autosuggestions`](https://github.com/zsh-users/zsh-autosuggestions) 时，会提示是否自动克隆到 `ZAI_AUTOSUGGEST_DIR` 并在 `.zshrc` 末尾追加 `source .../zsh-autosuggestions.zsh`。若选择跳过，可随时手动安装：`git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions`。
-- 如需使用 Tab 接受灰色建议，可在 `.zshrc` 追加 `bindkey '^I' autosuggest-accept`（脚本不会默认设置）。
+- macOS with zsh 5.8+
+- `curl`, `python3`
+- Optional: `fzf` (strongly recommended for the command picker + preview)
 
-## 依赖
+## Notes
 
-- macOS (已在 zsh 5.8+ 测试)
-- `curl` 与 `python3`
-- 可选：`fzf`（若存在则优先用于命令选择）
-
-## 注意事项
-
-- AI 生成的命令具有不确定性，执行前请仔细确认提示内容，尤其是带有写入或删除操作的命令。
-- 若使用公司或私有化部署，需要保证返回格式为 OpenAI Chat Completions 兼容的 JSON。
+- Always double-check AI-generated commands, especially anything that writes or deletes files.
+- Custom/self-hosted endpoints must implement the OpenAI Chat Completions schema.
