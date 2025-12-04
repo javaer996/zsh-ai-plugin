@@ -2,7 +2,7 @@
 
 _zai_select_command() {
   local entries="$1"
-  local -a cmd_list desc_list menu_entries
+  local -a cmd_list desc_list menu_entries encoded_list
   local line encoded_cmd decoded_cmd desc
   local IFS=$'\n'
   for line in ${=entries}; do
@@ -17,6 +17,7 @@ _zai_select_command() {
     }
     cmd_list+=("${decoded_cmd}")
     desc_list+=("${desc}")
+    encoded_list+=("${encoded_cmd}")
   done
 
   if (( ${#cmd_list} == 0 )); then
@@ -37,8 +38,16 @@ _zai_select_command() {
     ((idx++))
   done
 
-  local selection index selected
+  local selection index selected preview_file preview_helper preview_cmd tmp_idx
   if _zai_use_fzf; then
+    preview_file="$(mktemp)"
+    tmp_idx=1
+    while (( tmp_idx <= ${#cmd_list[@]} )); do
+      printf '%s\t%s\n' "${tmp_idx}" "${encoded_list[$tmp_idx]}" >> "${preview_file}"
+      ((tmp_idx++))
+    done
+    preview_helper="${ZAI_PLUGIN_DIR}/lib/fzf_preview.py"
+    preview_cmd="python3 ${(q)preview_helper} ${(q)preview_file} {}"
     local fzf_opts=(
       --prompt "zq> "
       --no-multi
@@ -46,8 +55,13 @@ _zai_select_command() {
       --height=60%
       --layout=reverse
       --border
+      --preview "${preview_cmd}"
+      --preview-window=down,45%,wrap
     )
-    selection="$(printf '%s\n' "${menu_entries[@]}" | fzf "${fzf_opts[@]}")" || return 1
+    selection="$(printf '%s\n' "${menu_entries[@]}" | fzf "${fzf_opts[@]}")"
+    local fzf_status=$?
+    rm -f "${preview_file}"
+    (( fzf_status == 0 )) || return 1
     index="${selection%%.*}"
   else
     local old_ps3="${PS3}"
